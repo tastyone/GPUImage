@@ -2,6 +2,8 @@
 #import <OpenGLES/EAGLDrawable.h>
 #import <AVFoundation/AVFoundation.h>
 
+BOOL __re_use_main_thread = NO;
+
 @interface GPUImageContext()
 {
     NSMutableDictionary *shaderProgramCache;
@@ -26,7 +28,14 @@ static void *openGLESContextQueueKey;
     }
 
 	openGLESContextQueueKey = &openGLESContextQueueKey;
-    _contextQueue = dispatch_queue_create("com.sunsetlakesoftware.GPUImage.openGLESContextQueue", NULL);
+    if ( __re_use_main_thread ) {
+        _contextQueue = dispatch_get_main_queue();
+#ifdef DEBUG
+        NSLog(@"__re_use_main_thread ON");
+#endif
+    } else {
+        _contextQueue = dispatch_queue_create("com.sunsetlakesoftware.GPUImage.openGLESContextQueue", NULL);
+    }
 #if (!defined(__IPHONE_6_0) || (__IPHONE_OS_VERSION_MAX_ALLOWED < __IPHONE_6_0))
 #else
 	dispatch_queue_set_specific(_contextQueue, openGLESContextQueueKey, (__bridge void *)self, NULL);
