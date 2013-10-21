@@ -566,6 +566,11 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
     return nil;
 }
 
+- (AVCaptureDeviceInput*)videoInput; // by tastyone@gmail.com
+{
+    return videoInput;
+}
+
 #define INITIALFRAMESTOIGNOREFORBENCHMARK 5
 
 - (void)updateTargetsForVideoCameraUsingCacheTextureAtWidth:(int)bufferWidth height:(int)bufferHeight time:(CMTime)currentTime;
@@ -910,13 +915,12 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
         
         CFRetain(sampleBuffer);
         runAsynchronouslyOnVideoProcessingQueue(^{
-            //Feature Detection Hook.
             if (self.delegate)
             {
                 [self.delegate willOutputSampleBuffer:sampleBuffer];
+            } else {
+                [self processVideoSampleBuffer:sampleBuffer];
             }
-            
-            [self processVideoSampleBuffer:sampleBuffer];
             
             CFRelease(sampleBuffer);
             dispatch_semaphore_signal(frameRenderingSemaphore);

@@ -62,6 +62,7 @@ typedef struct GPUMatrix3x3 GPUMatrix3x3;
 #if TARGET_IPHONE_SIMULATOR || TARGET_OS_IPHONE
     CVOpenGLESTextureCacheRef filterTextureCache;
     CVPixelBufferRef renderTarget;
+    CVPixelBufferRef renderTargetForUnlock; // added by tastyone;
     CVOpenGLESTextureRef renderTexture;
 #else
 #endif
@@ -75,6 +76,7 @@ typedef struct GPUMatrix3x3 GPUMatrix3x3;
 }
 
 @property(readonly) CVPixelBufferRef renderTarget;
+@property(readonly) CVPixelBufferRef renderTargetForUnlock; // added by tastyone;
 @property(readwrite, nonatomic) BOOL preventRendering;
 @property(readwrite, nonatomic) BOOL currentlyReceivingMonochromeInput;
 
