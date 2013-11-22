@@ -61,6 +61,68 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
 );
 
 
+
+#ifdef SHOW_STILL_CAPTURE_DEBUG
+
+#import <mach/mach.h>
+#import <mach/mach_host.h>
+
+void print_free_memory_vc()
+{
+    mach_port_t host_port;
+    mach_msg_type_number_t host_size;
+    vm_size_t pagesize;
+    
+    host_port = mach_host_self();
+    host_size = sizeof(vm_statistics_data_t) / sizeof(integer_t);
+    host_page_size(host_port, &pagesize);
+    
+    vm_statistics_data_t vm_stat;
+    
+    if (host_statistics(host_port, HOST_VM_INFO, (host_info_t)&vm_stat, &host_size) != KERN_SUCCESS)
+        NSLog(@"Failed to fetch vm statistics");
+        
+    /* Stats in bytes */
+        natural_t mem_used = (vm_stat.active_count +
+                              vm_stat.inactive_count +
+                              vm_stat.wire_count) * pagesize;
+        natural_t mem_free = vm_stat.free_count * pagesize;
+        natural_t mem_total = mem_used + mem_free;
+        
+        natural_t division = (natural_t)(1024 * 1024);
+        printf("used: %uMB free: %uMB total: %uMB\n", (mem_used / division), (mem_free / division), (mem_total / division));
+}
+
+void report_mem_vc(NSString *tag)
+{
+    if (!tag)
+        tag = @"Default";
+    
+    struct task_basic_info info;
+    
+    mach_msg_type_number_t size = sizeof(info);
+    
+    kern_return_t kerr = task_info(mach_task_self(),
+                                   
+                                   TASK_BASIC_INFO,
+                                   
+                                   (task_info_t)&info,
+                                   
+                                   &size);
+    
+    natural_t division = (natural_t)(1024 * 1024);
+    
+    if( kerr == KERN_SUCCESS ) {
+        NSLog(@"%@ - Memory used: %u", tag, info.resident_size/division); //in bytes
+    } else {
+        NSLog(@"%@ - Error: %s", tag, mach_error_string(kerr));
+    }
+}
+
+#endif
+
+
+
 #pragma mark -
 #pragma mark Private methods and instance variables
 
@@ -231,7 +293,7 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
 	
 	// Add the video frame output	
 	videoOutput = [[AVCaptureVideoDataOutput alloc] init];
-	[videoOutput setAlwaysDiscardsLateVideoFrames:NO];
+	[videoOutput setAlwaysDiscardsLateVideoFrames:YES]; // yes by tastyone
     
 //    if (captureAsYUV && [GPUImageContext deviceSupportsRedTextures])
     if (captureAsYUV && [GPUImageContext supportsFastTextureUpload])
@@ -577,6 +639,11 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
 {
     for (id<GPUImageInput> currentTarget in targets)
     {
+#ifdef SHOW_STILL_CAPTURE_DEBUG
+//        report_mem_vc([NSString stringWithFormat:@"BEFORE target: %@", currentTarget]);
+        NSLog(@"BEFORE target: %@", currentTarget);
+        print_free_memory_vc();
+#endif
         if ([currentTarget enabled])
         {
             NSInteger indexOfObject = [targets indexOfObject:currentTarget];
@@ -606,6 +673,10 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
                 [currentTarget setInputTexture:outputTexture atIndex:textureIndexOfTarget];
             }
         }
+#ifdef SHOW_STILL_CAPTURE_DEBUG
+        NSLog(@"AFTER target: %@", currentTarget);
+        print_free_memory_vc();
+#endif
     }
 }
 
@@ -613,9 +684,16 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
 {
     if (capturePaused)
     {
+#ifdef SHOW_STILL_CAPTURE_DEBUG
+        NSLog(@"discard by paused.2: %p", sampleBuffer);
+#endif
         return;
     }
     
+    [self processVideoSampleBufferForcely:sampleBuffer];
+}
+- (void)processVideoSampleBufferForcely:(CMSampleBufferRef)sampleBuffer;
+{
     CFAbsoluteTime startTime = CFAbsoluteTimeGetCurrent();
     CVImageBufferRef cameraFrame = CMSampleBufferGetImageBuffer(sampleBuffer);
     int bufferWidth = CVPixelBufferGetWidth(cameraFrame);
@@ -726,6 +804,9 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
             
+#ifdef SHOW_STILL_CAPTURE_DEBUG
+            NSLog(@"bufferSize: %d, %d - %p (%p)", bufferWidth, bufferHeight, cameraFrame, sampleBuffer);
+#endif
             [self updateTargetsForVideoCameraUsingCacheTextureAtWidth:bufferWidth height:bufferHeight time:currentTime];
 
             CVPixelBufferUnlockBaseAddress(cameraFrame, 0);
@@ -910,15 +991,24 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
     {
         if (dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_NOW) != 0)
         {
+#ifdef SHOW_STILL_CAPTURE_DEBUG
+            NSLog(@"discard by semaphore: %p", sampleBuffer);
+#endif
             return;
         }
         
         CFRetain(sampleBuffer);
+#ifdef SHOW_STILL_CAPTURE_DEBUG
+        NSLog(@"retained: %p", sampleBuffer);
+#endif
         runAsynchronouslyOnVideoProcessingQueue(^{
             if (self.delegate)
             {
                 [self.delegate willOutputSampleBuffer:sampleBuffer];
             } else {
+#ifdef SHOW_STILL_CAPTURE_DEBUG
+                NSLog(@"process: %p", sampleBuffer);
+#endif
                 [self processVideoSampleBuffer:sampleBuffer];
             }
             

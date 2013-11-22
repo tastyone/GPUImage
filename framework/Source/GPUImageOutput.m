@@ -71,6 +71,32 @@ void reportAvailableMemoryForGPUImage(NSString *tag)
     }    
 }
 
+void reportAvailableMemoryForGPUImage_InMB(NSString *tag)
+{
+    if (!tag)
+        tag = @"Default";
+    
+    struct task_basic_info info;
+    
+    mach_msg_type_number_t size = sizeof(info);
+    
+    kern_return_t kerr = task_info(mach_task_self(),
+                                   
+                                   TASK_BASIC_INFO,
+                                   
+                                   (task_info_t)&info,
+                                   
+                                   &size);
+    
+    natural_t division = (natural_t)(1024 * 1024);
+    
+    if( kerr == KERN_SUCCESS ) {
+        NSLog(@"%@ - Memory used: %u", tag, info.resident_size/division); //in bytes
+    } else {
+        NSLog(@"%@ - Error: %s", tag, mach_error_string(kerr));
+    }
+}
+
 @implementation GPUImageOutput
 
 @synthesize shouldSmoothlyScaleOutput = _shouldSmoothlyScaleOutput;

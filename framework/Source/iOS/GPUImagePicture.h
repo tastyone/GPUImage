@@ -19,6 +19,7 @@
 
 // Image rendering
 - (void)processImage;
+- (void)synchronizedProcessImage; // by tastyone
 - (CGSize)outputImageSize;
 
 /**

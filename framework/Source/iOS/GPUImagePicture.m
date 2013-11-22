@@ -178,6 +178,12 @@
         dispatch_release(imageUpdateSemaphore);
     }
 }
+#else
+- (void)dealloc
+{
+    [self deleteOutputTexture];
+    NSLog(@"GPUImagePicture Dealloced~~~~~: %@", self);
+}
 #endif
 
 #pragma mark -
@@ -192,6 +198,39 @@
 - (void)processImage;
 {
     [self processImageWithCompletionHandler:nil];
+}
+
+- (void)synchronizedProcessImage; // by tastyone
+{
+    hasProcessedImage = YES;
+    
+    //    dispatch_semaphore_wait(imageUpdateSemaphore, DISPATCH_TIME_FOREVER);
+    
+    if (dispatch_semaphore_wait(imageUpdateSemaphore, DISPATCH_TIME_NOW) != 0)
+    {
+        return;
+    }
+    
+    runSynchronouslyOnVideoProcessingQueue(^{
+        
+        if (MAX(pixelSizeOfImage.width, pixelSizeOfImage.height) > 1000.0)
+        {
+            [self conserveMemoryForNextFrame];
+        }
+        
+        for (id<GPUImageInput> currentTarget in targets)
+        {
+            NSInteger indexOfObject = [targets indexOfObject:currentTarget];
+            NSInteger textureIndexOfTarget = [[targetTextureIndices objectAtIndex:indexOfObject] integerValue];
+            
+            [currentTarget setCurrentlyReceivingMonochromeInput:NO];
+            [currentTarget setInputSize:pixelSizeOfImage atIndex:textureIndexOfTarget];
+            //            [currentTarget setInputTexture:outputTexture atIndex:textureIndexOfTarget];
+            [currentTarget newFrameReadyAtTime:kCMTimeIndefinite atIndex:textureIndexOfTarget];
+        }
+        
+        dispatch_semaphore_signal(imageUpdateSemaphore);
+    });
 }
 
 - (BOOL)processImageWithCompletionHandler:(void (^)(void))completion;

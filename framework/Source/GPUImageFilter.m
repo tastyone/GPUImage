@@ -161,6 +161,8 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size);
 - (void)dealloc
 {
     [self destroyFilterFBO];
+    [self deleteOutputTexture];
+    NSLog(@"destory filter FBO: %@", self);
 }
 
 #pragma mark -
@@ -209,7 +211,7 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
         
         GLubyte *rawImagePixels;
         
-        NSLog(@"f.newCGImageFrom: %@, pre: %d, ren: %p", self, preparedToCaptureImage, renderTarget);
+        NSLog(@"f.newCGImageFrom: %@, FBOSize: %@, pre: %d, ren: %p, malloc: %d MB", self, NSStringFromCGSize(currentFBOSize), preparedToCaptureImage, renderTarget, (int)totalBytesForImage/1024);
         CGDataProviderRef dataProvider;
         if ([GPUImageContext supportsFastTextureUpload] && preparedToCaptureImage)
         {
@@ -264,13 +266,26 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
 {
     GPUImagePicture *stillImageSource = [[GPUImagePicture alloc] initWithCGImage:imageToFilter];
     
+    [self prepareForImageCapture];
+    
     [stillImageSource addTarget:self];
-    [stillImageSource processImage];
+    //    [stillImageSource processImage];
+    [stillImageSource synchronizedProcessImage]; // added by tastyone@gmail.com
     
     CGImageRef processedImage = [self newCGImageFromCurrentlyProcessedOutputWithOrientation:orientation];
     
     [stillImageSource removeTarget:self];
     return processedImage;
+
+//    GPUImagePicture *stillImageSource = [[GPUImagePicture alloc] initWithCGImage:imageToFilter];
+//    
+//    [stillImageSource addTarget:self];
+//    [stillImageSource processImage];
+//    
+//    CGImageRef processedImage = [self newCGImageFromCurrentlyProcessedOutputWithOrientation:orientation];
+//    
+//    [stillImageSource removeTarget:self];
+//    return processedImage;
 }
 
 #pragma mark -
@@ -604,7 +619,7 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
                 
                 glDeleteTextures(1, &outputTexture);
                 outputTexture = 0;
-                glFinish(); // added by tastyone@gmail.com
+//                glFinish(); // added by tastyone@gmail.com
             });
         }
     }
@@ -915,6 +930,10 @@ void dataProviderUnlockCallback (void *info, const void *data, size_t size)
         inputTextureSize = rotatedSize;
         [self recreateFilterFBO];
     }
+//    else if ([GPUImageContext supportsFastTextureUpload] && preparedToCaptureImage) // by tastyone
+//    {
+//        [self recreateFilterFBO];
+//    }
 }
 
 - (void)setInputRotation:(GPUImageRotationMode)newInputRotation atIndex:(NSInteger)textureIndex;
