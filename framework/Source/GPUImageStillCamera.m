@@ -248,10 +248,11 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
         return;
     }
 
-    [self pauseCameraCapture]; // by tastyone
+//    [self pauseCameraCapture]; // by tastyone
 //    [finalFilterInChain prepareForImageCapture]; // by tastyone
     
 #ifdef DEBUG
+    NSLog(@"is mainThread: %d", [NSThread isMainThread]);
     reportAvailableMemoryForGPUImage_InMB(@"before captureStillImage");
 #endif
     
@@ -266,8 +267,11 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
 #endif
         
 //        [finalFilterInChain prepareForImageCapture]; // by tastyone
-//        [self pauseCameraCapture]; // by tastyone
-        [self stopCameraCapture]; // by tastyone
+        if ( self.pauseSessionWhenCaptureStillPhoto ) {
+            [self pauseCameraCapture]; // by tastyone
+        } else {
+            [self stopCameraCapture]; // by tastyone
+        }
 
 #ifdef DEBUG
         reportAvailableMemoryForGPUImage_InMB(@"after stopCameraSession");

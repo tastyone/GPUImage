@@ -9,6 +9,8 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
  */
 @property CGFloat jpegCompressionQuality;
 
+@property (assign) BOOL pauseSessionWhenCaptureStillPhoto; // tastyone
+
 // Only reliably set inside the context of the completion handler of one of the capture methods
 @property (strong) NSDictionary *currentCaptureMetadata;
 
