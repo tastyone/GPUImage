@@ -266,13 +266,17 @@ void report_mem_vc(NSString *tag)
 	// Grab the back-facing or front-facing camera
     _inputCamera = nil;
 	NSArray *devices = [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo];
-	for (AVCaptureDevice *device in devices) 
-	{
-		if ([device position] == cameraPosition)
-		{
-			_inputCamera = device;
-		}
-	}
+    if ( devices.count > 1 ) {
+        for (AVCaptureDevice *device in devices)
+        {
+            if ([device position] == cameraPosition)
+            {
+                _inputCamera = device;
+            }
+        }
+    } else if ( devices.count == 1 ) {
+        _inputCamera = [devices objectAtIndex:0];
+    }
     
     if (!_inputCamera) {
         return nil;
