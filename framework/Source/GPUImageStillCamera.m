@@ -256,6 +256,14 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
     reportAvailableMemoryForGPUImage_InMB(@"before captureStillImage");
 #endif
     
+    // by tastyone
+    if ( !photoOutput || ![photoOutput connections] || [[photoOutput connections] count] < 1 ) {
+        if ( block ) {
+            block([NSError errorWithDomain:NSLocalizedString(@"No Camera Connection", nil) code:27991 userInfo:nil]);
+        }
+        return;
+    }
+    
     [photoOutput captureStillImageAsynchronouslyFromConnection:[[photoOutput connections] objectAtIndex:0] completionHandler:^(CMSampleBufferRef imageSampleBuffer, NSError *error) {
         if(imageSampleBuffer == NULL){
             block(error);

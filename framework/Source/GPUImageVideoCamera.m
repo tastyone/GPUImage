@@ -290,12 +290,16 @@ void report_mem_vc(NSString *tag)
 	// Add the video input	
 	NSError *error = nil;
 	videoInput = [[AVCaptureDeviceInput alloc] initWithDevice:_inputCamera error:&error];
-	if ([_captureSession canAddInput:videoInput]) 
-	{
-		[_captureSession addInput:videoInput];
-	}
+    if ( error && error.code == -11852 ) { // tastyone
+        NSLog(@"Permission ERROR: %@", error);
+        return nil;
+    }
+    if ([_captureSession canAddInput:videoInput])
+    {
+        [_captureSession addInput:videoInput];
+    }
 	
-	// Add the video frame output	
+	// Add the video frame output
 	videoOutput = [[AVCaptureVideoDataOutput alloc] init];
 	[videoOutput setAlwaysDiscardsLateVideoFrames:YES]; // yes by tastyone
     
