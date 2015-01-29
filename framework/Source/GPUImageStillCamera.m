@@ -37,6 +37,7 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
     CMSampleTimingInfo timing = {frameTime, frameTime, kCMTimeInvalid};
     
     CMSampleBufferCreateForImageBuffer(kCFAllocatorDefault, pixel_buffer, YES, NULL, NULL, videoInfo, &timing, sampleBuffer);
+    CVPixelBufferUnlockBaseAddress(cameraFrame, 0);
     CFRelease(videoInfo);
     CVPixelBufferRelease(pixel_buffer);
 }
@@ -71,7 +72,10 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
     }
     
     /* Detect iOS version < 6 which require a texture cache corruption workaround */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     requiresFrontCameraTextureCacheCorruptionWorkaround = [[[UIDevice currentDevice] systemVersion] compare:@"6.0" options:NSNumericSearch] == NSOrderedAscending;
+#pragma clang diagnostic pop
     
     [self.captureSession beginConfiguration];
     
@@ -107,16 +111,6 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
         [videoOutput setVideoSettings:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_32BGRA] forKey:(id)kCVPixelBufferPixelFormatTypeKey]];
     }
     
-//    if (captureAsYUV && [GPUImageContext deviceSupportsRedTextures])
-//    {
-//        // TODO: Check for full range output and use that if available
-//        [photoOutput setOutputSettings:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange] forKey:(id)kCVPixelBufferPixelFormatTypeKey]];
-//    }
-//    else
-//    {
-//        [photoOutput setOutputSettings:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_32BGRA] forKey:(id)kCVPixelBufferPixelFormatTypeKey]];
-//    }
-
     [self.captureSession addOutput:photoOutput];
     
     [self.captureSession commitConfiguration];
@@ -167,7 +161,8 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
         UIImage *filteredPhoto = nil;
         
         if(!error){
-            filteredPhoto = [finalFilterInChain imageFromCurrentlyProcessedOutputWithOrientation:imageOrientation];
+            filteredPhoto = [finalFilterInChain imageFromCurrentFramebufferWithOrientation:imageOrientation];
+//            filteredPhoto = [finalFilterInChain imageFromCurrentlyProcessedOutputWithOrientation:imageOrientation];
         }
         dispatch_semaphore_signal(frameRenderingSemaphore);
         
@@ -181,10 +176,23 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
         UIImage *filteredPhoto = nil;
 
         if(!error){
-            filteredPhoto = [finalFilterInChain imageFromCurrentlyProcessedOutput];
+            filteredPhoto = [finalFilterInChain imageFromCurrentFramebuffer];
         }
         dispatch_semaphore_signal(frameRenderingSemaphore);
 
+        block(filteredPhoto, error);
+    }];
+}
+
+- (void)capturePhotoAsImageProcessedUpToFilter:(GPUImageOutput<GPUImageInput> *)finalFilterInChain withOrientation:(UIImageOrientation)orientation withCompletionHandler:(void (^)(UIImage *processedImage, NSError *error))block {
+    [self capturePhotoProcessedUpToFilter:finalFilterInChain withImageOnGPUHandler:^(NSError *error) {
+        UIImage *filteredPhoto = nil;
+        
+        if(!error) {
+            filteredPhoto = [finalFilterInChain imageFromCurrentFramebufferWithOrientation:orientation];
+        }
+        dispatch_semaphore_signal(frameRenderingSemaphore);
+        
         block(filteredPhoto, error);
     }];
 }
@@ -198,7 +206,7 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
 
         if(!error){
             @autoreleasepool {
-                UIImage *filteredPhoto = [finalFilterInChain imageFromCurrentlyProcessedOutput];
+                UIImage *filteredPhoto = [finalFilterInChain imageFromCurrentFramebuffer];
                 dispatch_semaphore_signal(frameRenderingSemaphore);
 //                reportAvailableMemoryForGPUImage(@"After UIImage generation");
 
@@ -215,6 +223,25 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
     }];
 }
 
+- (void)capturePhotoAsJPEGProcessedUpToFilter:(GPUImageOutput<GPUImageInput> *)finalFilterInChain withOrientation:(UIImageOrientation)orientation withCompletionHandler:(void (^)(NSData *processedImage, NSError *error))block {
+    [self capturePhotoProcessedUpToFilter:finalFilterInChain withImageOnGPUHandler:^(NSError *error) {
+        NSData *dataForJPEGFile = nil;
+        
+        if(!error) {
+            @autoreleasepool {
+                UIImage *filteredPhoto = [finalFilterInChain imageFromCurrentFramebufferWithOrientation:orientation];
+                dispatch_semaphore_signal(frameRenderingSemaphore);
+                
+                dataForJPEGFile = UIImageJPEGRepresentation(filteredPhoto, self.jpegCompressionQuality);
+            }
+        } else {
+            dispatch_semaphore_signal(frameRenderingSemaphore);
+        }
+        
+        block(dataForJPEGFile, error);
+    }];
+}
+
 - (void)capturePhotoAsPNGProcessedUpToFilter:(GPUImageOutput<GPUImageInput> *)finalFilterInChain withCompletionHandler:(void (^)(NSData *processedPNG, NSError *error))block;
 {
 
@@ -223,7 +250,7 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
 
         if(!error){
             @autoreleasepool {
-                UIImage *filteredPhoto = [finalFilterInChain imageFromCurrentlyProcessedOutput];
+                UIImage *filteredPhoto = [finalFilterInChain imageFromCurrentFramebuffer];
                 dispatch_semaphore_signal(frameRenderingSemaphore);
                 dataForPNGFile = UIImagePNGRepresentation(filteredPhoto);
             }
@@ -237,68 +264,45 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
     return;
 }
 
-#pragma mark - Private Methods
-
-// edited by tastyone
-- (void)capturePhotoProcessedUpToFilter:(GPUImageOutput<GPUImageInput> *)finalFilterInChain withImageOnGPUHandler:(void (^)(NSError *error))block
+- (void)capturePhotoAsPNGProcessedUpToFilter:(GPUImageOutput<GPUImageInput> *)finalFilterInChain withOrientation:(UIImageOrientation)orientation withCompletionHandler:(void (^)(NSData *processedPNG, NSError *error))block;
 {
-    [self capturePhotoProcessedUpToFilter:finalFilterInChain withImageOnGPUHandler:block withCapturedBufferCallback:NULL];
+    
+    [self capturePhotoProcessedUpToFilter:finalFilterInChain withImageOnGPUHandler:^(NSError *error) {
+        NSData *dataForPNGFile = nil;
+        
+        if(!error){
+            @autoreleasepool {
+                UIImage *filteredPhoto = [finalFilterInChain imageFromCurrentFramebufferWithOrientation:orientation];
+                dispatch_semaphore_signal(frameRenderingSemaphore);
+                dataForPNGFile = UIImagePNGRepresentation(filteredPhoto);
+            }
+        }else{
+            dispatch_semaphore_signal(frameRenderingSemaphore);
+        }
+        
+        block(dataForPNGFile, error);
+    }];
+    
+    return;
 }
 
-// added by tastyone
-- (void)capturePhotoProcessedUpToFilter:(GPUImageOutput<GPUImageInput> *)finalFilterInChain withImageOnGPUHandler:(void (^)(NSError *error))block withCapturedBufferCallback:(void (^)(CMSampleBufferRef imageSampleBuffer, NSError *error))bufferCallback
+#pragma mark - Private Methods
+
+- (void)capturePhotoProcessedUpToFilter:(GPUImageOutput<GPUImageInput> *)finalFilterInChain withImageOnGPUHandler:(void (^)(NSError *error))block
 {
     dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_FOREVER);
-
+    
     if(photoOutput.isCapturingStillImage){
         block([NSError errorWithDomain:AVFoundationErrorDomain code:AVErrorMaximumStillImageCaptureRequestsExceeded userInfo:nil]);
         return;
     }
-
-//    [self pauseCameraCapture]; // by tastyone
-//    [finalFilterInChain prepareForImageCapture]; // by tastyone
-    
-#ifdef DEBUG
-    NSLog(@"is mainThread: %d", [NSThread isMainThread]);
-    reportAvailableMemoryForGPUImage_InMB(@"before captureStillImage");
-#endif
-    
-    // by tastyone
-    if ( !photoOutput || ![photoOutput connections] || [[photoOutput connections] count] < 1 ) {
-        if ( block ) {
-            block([NSError errorWithDomain:NSLocalizedString(@"No Camera Connection", nil) code:27991 userInfo:nil]);
-        }
-        return;
-    }
     
     [photoOutput captureStillImageAsynchronouslyFromConnection:[[photoOutput connections] objectAtIndex:0] completionHandler:^(CMSampleBufferRef imageSampleBuffer, NSError *error) {
-        // by tastyone
-        if (bufferCallback != NULL) {
-            bufferCallback(imageSampleBuffer, error);
-        }
-        
         if(imageSampleBuffer == NULL){
             block(error);
             return;
         }
         
-#ifdef DEBUG
-        reportAvailableMemoryForGPUImage_InMB(@"after captureStillImage");
-#endif
-        
-//        [finalFilterInChain prepareForImageCapture]; // by tastyone
-        if ( self.pauseSessionWhenCaptureStillPhoto ) {
-            [self pauseCameraCapture]; // by tastyone
-        } else {
-            [self stopCameraCapture]; // by tastyone
-        }
-
-#ifdef DEBUG
-        reportAvailableMemoryForGPUImage_InMB(@"after stopCameraSession");
-#endif
-        
-        [self conserveMemoryForNextFrame];
-
         // For now, resize photos to fix within the max texture size of the GPU
         CVImageBufferRef cameraFrame = CMSampleBufferGetImageBuffer(imageSampleBuffer);
         
@@ -316,23 +320,11 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
             {
                 GPUImageCreateResizedSampleBuffer(cameraFrame, scaledImageSizeToFitOnGPU, &sampleBuffer);
             }
-
-#ifdef DEBUG
-            NSLog(@"Not tested!!!");
-            abort();
-#endif
-#ifdef SHOW_STILL_CAPTURE_DEBUG
-            NSLog(@"still process. A 1 - sizeOfPhoto: %@ - %p", NSStringFromCGSize(sizeOfPhoto), imageSampleBuffer);
-#endif
-            runSynchronouslyOnVideoProcessingQueue(^{
-                [self processVideoSampleBufferForcely:imageSampleBuffer];
-            });
-#ifdef SHOW_STILL_CAPTURE_DEBUG
-            NSLog(@"still process. A 2");
-#endif
-//            dispatch_semaphore_signal(frameRenderingSemaphore);
-//            [self captureOutput:photoOutput didOutputSampleBuffer:sampleBuffer fromConnection:[[photoOutput connections] objectAtIndex:0]];
-//            dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_FOREVER);
+            
+            dispatch_semaphore_signal(frameRenderingSemaphore);
+            [finalFilterInChain useNextFrameForImageCapture];
+            [self captureOutput:photoOutput didOutputSampleBuffer:sampleBuffer fromConnection:[[photoOutput connections] objectAtIndex:0]];
+            dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_FOREVER);
             if (sampleBuffer != NULL)
                 CFRelease(sampleBuffer);
         }
@@ -342,32 +334,148 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
             AVCaptureDevicePosition currentCameraPosition = [[videoInput device] position];
             if ( (currentCameraPosition != AVCaptureDevicePositionFront) || (![GPUImageContext supportsFastTextureUpload]) || !requiresFrontCameraTextureCacheCorruptionWorkaround)
             {
-#ifdef SHOW_STILL_CAPTURE_DEBUG
-                NSLog(@"still process. 1 - sizeOfPhoto: %@ - %p", NSStringFromCGSize(sizeOfPhoto), imageSampleBuffer);
-#endif
-                runSynchronouslyOnVideoProcessingQueue(^{
-                    [self processVideoSampleBufferForcely:imageSampleBuffer];
-                });
-#ifdef SHOW_STILL_CAPTURE_DEBUG
-                NSLog(@"still process. 2");
-#endif
-//                dispatch_semaphore_signal(frameRenderingSemaphore);
-//                NSLog(@"still process. 1 - sizeOfPhoto: %@ - %p", NSStringFromCGSize(sizeOfPhoto), imageSampleBuffer);
-//                [self captureOutput:photoOutput didOutputSampleBuffer:imageSampleBuffer fromConnection:[[photoOutput connections] objectAtIndex:0]];
-//                NSLog(@"still process. 2");
-////                [self processVideoSampleBuffer:imageSampleBuffer];
-//                dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_FOREVER);
+                dispatch_semaphore_signal(frameRenderingSemaphore);
+                [finalFilterInChain useNextFrameForImageCapture];
+                [self captureOutput:photoOutput didOutputSampleBuffer:imageSampleBuffer fromConnection:[[photoOutput connections] objectAtIndex:0]];
+                dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_FOREVER);
             }
         }
         
         CFDictionaryRef metadata = CMCopyDictionaryOfAttachments(NULL, imageSampleBuffer, kCMAttachmentMode_ShouldPropagate);
-        self.currentCaptureMetadata = (__bridge_transfer NSDictionary *)metadata;
-
-//        [self pauseCameraCapture]; // by tastyone
+        _currentCaptureMetadata = (__bridge_transfer NSDictionary *)metadata;
+        
         block(nil);
-
-//        _currentCaptureMetadata = nil;
+        
+        _currentCaptureMetadata = nil;
     }];
+}
+
+// added by tastyone
+- (void)capturePhotoProcessedUpToFilter:(GPUImageOutput<GPUImageInput> *)finalFilterInChain withImageOnGPUHandler:(void (^)(NSError *error))block withCapturedBufferCallback:(void (^)(CMSampleBufferRef imageSampleBuffer, NSError *error))bufferCallback
+
+{
+    [self capturePhotoProcessedUpToFilter:finalFilterInChain withImageOnGPUHandler:block];
+    return;
+//    dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_FOREVER);
+//
+//    if(photoOutput.isCapturingStillImage){
+//        block([NSError errorWithDomain:AVFoundationErrorDomain code:AVErrorMaximumStillImageCaptureRequestsExceeded userInfo:nil]);
+//        return;
+//    }
+//
+////    [self pauseCameraCapture]; // by tastyone
+////    [finalFilterInChain prepareForImageCapture]; // by tastyone
+//    
+//#ifdef DEBUG
+//    NSLog(@"is mainThread: %d", [NSThread isMainThread]);
+//    reportAvailableMemoryForGPUImage_InMB(@"before captureStillImage");
+//#endif
+//    
+//    // by tastyone
+//    if ( !photoOutput || ![photoOutput connections] || [[photoOutput connections] count] < 1 ) {
+//        if ( block ) {
+//            block([NSError errorWithDomain:NSLocalizedString(@"No Camera Connection", nil) code:27991 userInfo:nil]);
+//        }
+//        return;
+//    }
+//    
+//    [photoOutput captureStillImageAsynchronouslyFromConnection:[[photoOutput connections] objectAtIndex:0] completionHandler:^(CMSampleBufferRef imageSampleBuffer, NSError *error) {
+//        // by tastyone
+//        if (bufferCallback != NULL) {
+//            bufferCallback(imageSampleBuffer, error);
+//        }
+//        
+//        if(imageSampleBuffer == NULL){
+//            block(error);
+//            return;
+//        }
+//        
+//#ifdef DEBUG
+//        reportAvailableMemoryForGPUImage_InMB(@"after captureStillImage");
+//#endif
+//        
+////        [finalFilterInChain prepareForImageCapture]; // by tastyone
+//        if ( self.pauseSessionWhenCaptureStillPhoto ) {
+//            [self pauseCameraCapture]; // by tastyone
+//        } else {
+//            [self stopCameraCapture]; // by tastyone
+//        }
+//
+//#ifdef DEBUG
+//        reportAvailableMemoryForGPUImage_InMB(@"after stopCameraSession");
+//#endif
+//        
+//        // For now, resize photos to fix within the max texture size of the GPU
+//        CVImageBufferRef cameraFrame = CMSampleBufferGetImageBuffer(imageSampleBuffer);
+//        
+//        CGSize sizeOfPhoto = CGSizeMake(CVPixelBufferGetWidth(cameraFrame), CVPixelBufferGetHeight(cameraFrame));
+//        CGSize scaledImageSizeToFitOnGPU = [GPUImageContext sizeThatFitsWithinATextureForSize:sizeOfPhoto];
+//        if (!CGSizeEqualToSize(sizeOfPhoto, scaledImageSizeToFitOnGPU))
+//        {
+//            CMSampleBufferRef sampleBuffer = NULL;
+//            
+//            if (CVPixelBufferGetPlaneCount(cameraFrame) > 0)
+//            {
+//                NSAssert(NO, @"Error: no downsampling for YUV input in the framework yet");
+//            }
+//            else
+//            {
+//                GPUImageCreateResizedSampleBuffer(cameraFrame, scaledImageSizeToFitOnGPU, &sampleBuffer);
+//            }
+//
+//#ifdef DEBUG
+//            NSLog(@"Not tested!!!");
+//            abort();
+//#endif
+//#ifdef SHOW_STILL_CAPTURE_DEBUG
+//            NSLog(@"still process. A 1 - sizeOfPhoto: %@ - %p", NSStringFromCGSize(sizeOfPhoto), imageSampleBuffer);
+//#endif
+//            runSynchronouslyOnVideoProcessingQueue(^{
+//                [self processVideoSampleBufferForcely:imageSampleBuffer];
+//            });
+//#ifdef SHOW_STILL_CAPTURE_DEBUG
+//            NSLog(@"still process. A 2");
+//#endif
+////            dispatch_semaphore_signal(frameRenderingSemaphore);
+////            [self captureOutput:photoOutput didOutputSampleBuffer:sampleBuffer fromConnection:[[photoOutput connections] objectAtIndex:0]];
+////            dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_FOREVER);
+//            dispatch_semaphore_signal(frameRenderingSemaphore);
+//            [finalFilterInChain useNextFrameForImageCapture];
+//            [self captureOutput:photoOutput didOutputSampleBuffer:sampleBuffer fromConnection:[[photoOutput connections] objectAtIndex:0]];
+//            dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_FOREVER);
+//            if (sampleBuffer != NULL)
+//                CFRelease(sampleBuffer);
+//        }
+//        else
+//        {
+//            // This is a workaround for the corrupt images that are sometimes returned when taking a photo with the front camera and using the iOS 5.0 texture caches
+//            AVCaptureDevicePosition currentCameraPosition = [[videoInput device] position];
+//            if ( (currentCameraPosition != AVCaptureDevicePositionFront) || (![GPUImageContext supportsFastTextureUpload]) || !requiresFrontCameraTextureCacheCorruptionWorkaround)
+//            {
+//#ifdef SHOW_STILL_CAPTURE_DEBUG
+//                NSLog(@"still process. 1 - sizeOfPhoto: %@ - %p", NSStringFromCGSize(sizeOfPhoto), imageSampleBuffer);
+//#endif
+//                runSynchronouslyOnVideoProcessingQueue(^{
+//                    [self processVideoSampleBufferForcely:imageSampleBuffer];
+//                });
+//#ifdef SHOW_STILL_CAPTURE_DEBUG
+//                NSLog(@"still process. 2");
+//#endif
+//                dispatch_semaphore_signal(frameRenderingSemaphore);
+//                [finalFilterInChain useNextFrameForImageCapture];
+//                [self captureOutput:photoOutput didOutputSampleBuffer:imageSampleBuffer fromConnection:[[photoOutput connections] objectAtIndex:0]];
+//                dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_FOREVER);
+//            }
+//        }
+//        
+//        CFDictionaryRef metadata = CMCopyDictionaryOfAttachments(NULL, imageSampleBuffer, kCMAttachmentMode_ShouldPropagate);
+//        self.currentCaptureMetadata = (__bridge_transfer NSDictionary *)metadata;
+//
+////        [self pauseCameraCapture]; // by tastyone
+//        block(nil);
+//
+////        _currentCaptureMetadata = nil;
+//    }];
 }
 
 
