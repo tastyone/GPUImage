@@ -239,7 +239,14 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
 
 #pragma mark - Private Methods
 
+// edited by tastyone
 - (void)capturePhotoProcessedUpToFilter:(GPUImageOutput<GPUImageInput> *)finalFilterInChain withImageOnGPUHandler:(void (^)(NSError *error))block
+{
+    [self capturePhotoProcessedUpToFilter:finalFilterInChain withImageOnGPUHandler:block withCapturedBufferCallback:NULL];
+}
+
+// added by tastyone
+- (void)capturePhotoProcessedUpToFilter:(GPUImageOutput<GPUImageInput> *)finalFilterInChain withImageOnGPUHandler:(void (^)(NSError *error))block withCapturedBufferCallback:(void (^)(CMSampleBufferRef imageSampleBuffer, NSError *error))bufferCallback
 {
     dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_FOREVER);
 
@@ -265,6 +272,11 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
     }
     
     [photoOutput captureStillImageAsynchronouslyFromConnection:[[photoOutput connections] objectAtIndex:0] completionHandler:^(CMSampleBufferRef imageSampleBuffer, NSError *error) {
+        // by tastyone
+        if (bufferCallback != NULL) {
+            bufferCallback(imageSampleBuffer, error);
+        }
+        
         if(imageSampleBuffer == NULL){
             block(error);
             return;
