@@ -122,7 +122,6 @@ extern NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString
  @param sampleBuffer Buffer to process
  */
 - (void)processVideoSampleBuffer:(CMSampleBufferRef)sampleBuffer;
-- (void)processVideoSampleBufferForcely:(CMSampleBufferRef)sampleBuffer;
 
 /** Process an audio sample
  @param sampleBuffer Buffer to process

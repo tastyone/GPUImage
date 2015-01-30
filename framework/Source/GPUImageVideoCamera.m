@@ -762,16 +762,9 @@ void report_mem_vc(NSString *tag)
 {
     if (capturePaused)
     {
-#ifdef SHOW_STILL_CAPTURE_DEBUG
-        NSLog(@"discard by paused.2: %p", sampleBuffer);
-#endif
         return;
     }
     
-    [self processVideoSampleBufferForcely:sampleBuffer];
-}
-- (void)processVideoSampleBufferForcely:(CMSampleBufferRef)sampleBuffer;
-{
     CFAbsoluteTime startTime = CFAbsoluteTimeGetCurrent();
     CVImageBufferRef cameraFrame = CMSampleBufferGetImageBuffer(sampleBuffer);
     int bufferWidth = (int) CVPixelBufferGetWidth(cameraFrame);
@@ -806,17 +799,17 @@ void report_mem_vc(NSString *tag)
             _preferredConversion = kColorConversion601;
         }
     }
-
-	CMTime currentTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer);
-
+    
+    CMTime currentTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer);
+    
     [GPUImageContext useImageProcessingContext];
-
+    
     if ([GPUImageContext supportsFastTextureUpload] && captureAsYUV)
     {
         CVOpenGLESTextureRef luminanceTextureRef = NULL;
         CVOpenGLESTextureRef chrominanceTextureRef = NULL;
-
-//        if (captureAsYUV && [GPUImageContext deviceSupportsRedTextures])
+        
+        //        if (captureAsYUV && [GPUImageContext deviceSupportsRedTextures])
         if (CVPixelBufferGetPlaneCount(cameraFrame) > 0) // Check for YUV planar inputs to do RGB conversion
         {
             CVPixelBufferLockBaseAddress(cameraFrame, 0);
@@ -832,7 +825,7 @@ void report_mem_vc(NSString *tag)
             glActiveTexture(GL_TEXTURE4);
             if ([GPUImageContext deviceSupportsRedTextures])
             {
-//                err = CVOpenGLESTextureCacheCreateTextureFromImage(kCFAllocatorDefault, coreVideoTextureCache, cameraFrame, NULL, GL_TEXTURE_2D, GL_RED_EXT, bufferWidth, bufferHeight, GL_RED_EXT, GL_UNSIGNED_BYTE, 0, &luminanceTextureRef);
+                //                err = CVOpenGLESTextureCacheCreateTextureFromImage(kCFAllocatorDefault, coreVideoTextureCache, cameraFrame, NULL, GL_TEXTURE_2D, GL_RED_EXT, bufferWidth, bufferHeight, GL_RED_EXT, GL_UNSIGNED_BYTE, 0, &luminanceTextureRef);
                 err = CVOpenGLESTextureCacheCreateTextureFromImage(kCFAllocatorDefault, [[GPUImageContext sharedImageProcessingContext] coreVideoTextureCache], cameraFrame, NULL, GL_TEXTURE_2D, GL_LUMINANCE, bufferWidth, bufferHeight, GL_LUMINANCE, GL_UNSIGNED_BYTE, 0, &luminanceTextureRef);
             }
             else
@@ -853,7 +846,7 @@ void report_mem_vc(NSString *tag)
             glActiveTexture(GL_TEXTURE5);
             if ([GPUImageContext deviceSupportsRedTextures])
             {
-//                err = CVOpenGLESTextureCacheCreateTextureFromImage(kCFAllocatorDefault, coreVideoTextureCache, cameraFrame, NULL, GL_TEXTURE_2D, GL_RG_EXT, bufferWidth/2, bufferHeight/2, GL_RG_EXT, GL_UNSIGNED_BYTE, 1, &chrominanceTextureRef);
+                //                err = CVOpenGLESTextureCacheCreateTextureFromImage(kCFAllocatorDefault, coreVideoTextureCache, cameraFrame, NULL, GL_TEXTURE_2D, GL_RG_EXT, bufferWidth/2, bufferHeight/2, GL_RG_EXT, GL_UNSIGNED_BYTE, 1, &chrominanceTextureRef);
                 err = CVOpenGLESTextureCacheCreateTextureFromImage(kCFAllocatorDefault, [[GPUImageContext sharedImageProcessingContext] coreVideoTextureCache], cameraFrame, NULL, GL_TEXTURE_2D, GL_LUMINANCE_ALPHA, bufferWidth/2, bufferHeight/2, GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE, 1, &chrominanceTextureRef);
             }
             else
@@ -870,11 +863,11 @@ void report_mem_vc(NSString *tag)
             glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
             
-//            if (!allTargetsWantMonochromeData)
-//            {
-                [self convertYUVToRGBOutput];
-//            }
-
+            //            if (!allTargetsWantMonochromeData)
+            //            {
+            [self convertYUVToRGBOutput];
+            //            }
+            
             int rotatedImageBufferWidth = bufferWidth, rotatedImageBufferHeight = bufferHeight;
             
             if (GPUImageRotationSwapsWidthAndHeight(internalRotation))
@@ -893,43 +886,30 @@ void report_mem_vc(NSString *tag)
         {
             // TODO: Mesh this with the output framebuffer structure
             
-//<<<<<<< HEAD
-//#ifdef SHOW_STILL_CAPTURE_DEBUG
-//            NSLog(@"bufferSize: %d, %d - %p (%p)", bufferWidth, bufferHeight, cameraFrame, sampleBuffer);
-//#endif
-//            [self updateTargetsForVideoCameraUsingCacheTextureAtWidth:bufferWidth height:bufferHeight time:currentTime];
-//
-//            CVPixelBufferUnlockBaseAddress(cameraFrame, 0);
-//            CVOpenGLESTextureCacheFlush(coreVideoTextureCache, 0);
-//            CFRelease(texture);
-//
-//            outputTexture = 0;
-//=======
-//            CVPixelBufferLockBaseAddress(cameraFrame, 0);
-//            
-//            CVReturn err = CVOpenGLESTextureCacheCreateTextureFromImage(kCFAllocatorDefault, [[GPUImageContext sharedImageProcessingContext] coreVideoTextureCache], cameraFrame, NULL, GL_TEXTURE_2D, GL_RGBA, bufferWidth, bufferHeight, GL_BGRA, GL_UNSIGNED_BYTE, 0, &texture);
-//            
-//            if (!texture || err) {
-//                NSLog(@"Camera CVOpenGLESTextureCacheCreateTextureFromImage failed (error: %d)", err);
-//                NSAssert(NO, @"Camera failure");
-//                return;
-//            }
-//            
-//            outputTexture = CVOpenGLESTextureGetName(texture);
-//            //        glBindTexture(CVOpenGLESTextureGetTarget(texture), outputTexture);
-//            glBindTexture(GL_TEXTURE_2D, outputTexture);
-//            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-//            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-//            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-//            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-//            
-//            [self updateTargetsForVideoCameraUsingCacheTextureAtWidth:bufferWidth height:bufferHeight time:currentTime];
-//
-//            CVPixelBufferUnlockBaseAddress(cameraFrame, 0);
-//            CFRelease(texture);
-//
-//            outputTexture = 0;
-//>>>>>>> 011f4af40671a39eac40be4ece78e2f50f8f68ea
+            //            CVPixelBufferLockBaseAddress(cameraFrame, 0);
+            //
+            //            CVReturn err = CVOpenGLESTextureCacheCreateTextureFromImage(kCFAllocatorDefault, [[GPUImageContext sharedImageProcessingContext] coreVideoTextureCache], cameraFrame, NULL, GL_TEXTURE_2D, GL_RGBA, bufferWidth, bufferHeight, GL_BGRA, GL_UNSIGNED_BYTE, 0, &texture);
+            //
+            //            if (!texture || err) {
+            //                NSLog(@"Camera CVOpenGLESTextureCacheCreateTextureFromImage failed (error: %d)", err);
+            //                NSAssert(NO, @"Camera failure");
+            //                return;
+            //            }
+            //
+            //            outputTexture = CVOpenGLESTextureGetName(texture);
+            //            //        glBindTexture(CVOpenGLESTextureGetTarget(texture), outputTexture);
+            //            glBindTexture(GL_TEXTURE_2D, outputTexture);
+            //            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            //            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            //            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            //            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            //
+            //            [self updateTargetsForVideoCameraUsingCacheTextureAtWidth:bufferWidth height:bufferHeight time:currentTime];
+            //
+            //            CVPixelBufferUnlockBaseAddress(cameraFrame, 0);
+            //            CFRelease(texture);
+            //
+            //            outputTexture = 0;
         }
         
         
@@ -952,7 +932,7 @@ void report_mem_vc(NSString *tag)
         int bytesPerRow = (int) CVPixelBufferGetBytesPerRow(cameraFrame);
         outputFramebuffer = [[GPUImageContext sharedFramebufferCache] fetchFramebufferForSize:CGSizeMake(bytesPerRow / 4, bufferHeight) onlyTexture:YES];
         [outputFramebuffer activateFramebuffer];
-
+        
         glBindTexture(GL_TEXTURE_2D, [outputFramebuffer texture]);
         
         //        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bufferWidth, bufferHeight, 0, GL_BGRA, GL_UNSIGNED_BYTE, CVPixelBufferGetBaseAddress(cameraFrame));
@@ -974,7 +954,7 @@ void report_mem_vc(NSString *tag)
                 totalFrameTimeDuringCapture += currentFrameTime;
             }
         }
-    }  
+    }
 }
 
 - (void)processAudioSampleBuffer:(CMSampleBufferRef)sampleBuffer;
@@ -1042,8 +1022,11 @@ void report_mem_vc(NSString *tag)
 
 - (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection
 {
+//    static long i = 0;
+//    NSLog(@"didOutputSampleBuffer: %ld", i++);
     if (!self.captureSession.isRunning)
     {
+//        NSLog(@"NO self.captureSession.isRunning");
         return;
     }
     else if (captureOutput == audioOutput)
@@ -1054,26 +1037,22 @@ void report_mem_vc(NSString *tag)
     {
         if (dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_NOW) != 0)
         {
-#ifdef SHOW_STILL_CAPTURE_DEBUG
-            NSLog(@"discard by semaphore: %p", sampleBuffer);
-#endif
+//            NSLog(@"dispatch_semaphore_wait: %ld", i);
             return;
         }
         
+//        __block long ii = i;
+//        
         CFRetain(sampleBuffer);
-#ifdef SHOW_STILL_CAPTURE_DEBUG
-        NSLog(@"retained: %p", sampleBuffer);
-#endif
         runAsynchronouslyOnVideoProcessingQueue(^{
+//            NSLog(@"willOutputSampleBuffer: %ld", ii);
+            //Feature Detection Hook.
             if (self.delegate)
             {
                 [self.delegate willOutputSampleBuffer:sampleBuffer];
-            } else {
-#ifdef SHOW_STILL_CAPTURE_DEBUG
-                NSLog(@"process: %p", sampleBuffer);
-#endif
-                [self processVideoSampleBuffer:sampleBuffer];
             }
+            
+            [self processVideoSampleBuffer:sampleBuffer];
             
             CFRelease(sampleBuffer);
             dispatch_semaphore_signal(frameRenderingSemaphore);
