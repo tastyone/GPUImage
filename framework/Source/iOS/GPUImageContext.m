@@ -3,6 +3,7 @@
 #import <AVFoundation/AVFoundation.h>
 
 BOOL __re_use_main_thread = NO;
+GLint __re_customTextureSize = 0;
 
 #define MAXSHADERPROGRAMSALLOWEDINCACHE 40
 
@@ -195,7 +196,7 @@ static void *openGLESContextQueueKey;
 
 + (CGSize)sizeThatFitsWithinATextureForSize:(CGSize)inputSize;
 {
-    GLint maxTextureSize = [self maximumTextureSizeForThisDevice]; 
+    GLint maxTextureSize = __re_customTextureSize > 0 ? __re_customTextureSize : [self maximumTextureSizeForThisDevice];
     if ( (inputSize.width < maxTextureSize) && (inputSize.height < maxTextureSize) )
     {
         return inputSize;

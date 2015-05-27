@@ -220,9 +220,8 @@ void report_mem_vc(NSString *tag)
     _runBenchmark = NO;
     capturePaused = NO;
     outputRotation = kGPUImageNoRotation;
-//    captureAsYUV = NO; // tastyone
     internalRotation = kGPUImageNoRotation;
-    captureAsYUV = YES;
+    captureAsYUV = NO; // tastyone
     _preferredConversion = kColorConversion709;
     
 	// Grab the back-facing or front-facing camera
@@ -323,12 +322,14 @@ void report_mem_vc(NSString *tag)
                 
                 if (![yuvConversionProgram link])
                 {
+#ifdef DEBUG
                     NSString *progLog = [yuvConversionProgram programLog];
                     NSLog(@"Program link log: %@", progLog);
                     NSString *fragLog = [yuvConversionProgram fragmentShaderLog];
                     NSLog(@"Fragment shader compile log: %@", fragLog);
                     NSString *vertLog = [yuvConversionProgram vertexShaderLog];
                     NSLog(@"Vertex shader compile log: %@", vertLog);
+#endif
                     yuvConversionProgram = nil;
                     NSAssert(NO, @"Filter shader link failed");
                 }

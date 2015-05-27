@@ -105,12 +105,14 @@
             
             if (![displayProgram link])
             {
+#ifdef DEBUG
                 NSString *progLog = [displayProgram programLog];
                 NSLog(@"Program link log: %@", progLog);
                 NSString *fragLog = [displayProgram fragmentShaderLog];
                 NSLog(@"Fragment shader compile log: %@", fragLog);
                 NSString *vertLog = [displayProgram vertexShaderLog];
                 NSLog(@"Vertex shader compile log: %@", vertLog);
+#endif
                 displayProgram = nil;
                 NSAssert(NO, @"Filter shader link failed");
             }
