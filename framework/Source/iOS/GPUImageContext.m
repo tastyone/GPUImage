@@ -4,6 +4,7 @@
 
 BOOL __re_use_main_thread = NO;
 GLint __re_customTextureSize = 0;
+BOOL __re_captureAsYUV = YES;
 
 #define MAXSHADERPROGRAMSALLOWEDINCACHE 40
 

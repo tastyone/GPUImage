@@ -221,7 +221,7 @@ void report_mem_vc(NSString *tag)
     capturePaused = NO;
     outputRotation = kGPUImageNoRotation;
     internalRotation = kGPUImageNoRotation;
-    captureAsYUV = NO; // tastyone
+    captureAsYUV = __re_captureAsYUV; //NO; // tastyone
     _preferredConversion = kColorConversion709;
     
 	// Grab the back-facing or front-facing camera
