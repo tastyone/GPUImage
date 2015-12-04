@@ -49,6 +49,8 @@ NSString *const kGPUImagePassthroughFragmentShaderString = SHADER_STRING
 
 @implementation GPUImageFilter
 
+//@synthesize renderTarget;
+//@synthesize renderTargetForUnlock; // added by tastyone@gmail.com
 @synthesize preventRendering = _preventRendering;
 @synthesize currentlyReceivingMonochromeInput;
 
@@ -179,6 +181,22 @@ NSString *const kGPUImagePassthroughFragmentShaderString = SHADER_STRING
     {
         return;
     }
+//void dataProviderUnlockCallback (void *info, const void *data, size_t size)
+//{
+//    GPUImageFilter *filter = (__bridge_transfer GPUImageFilter*)info;
+//    
+//    if ( [filter renderTargetForUnlock] ) {
+//        //        CVPixelBufferUnlockBaseAddress([filter renderTargetForUnlock], kCVPixelBufferLock_ReadOnly);
+//        CFRelease([filter renderTargetForUnlock]);
+//    }
+////    CVPixelBufferUnlockBaseAddress([filter renderTarget], 0);
+////    if ([filter renderTarget]) {
+////        CFRelease([filter renderTarget]);
+////    }
+//
+//    [filter destroyFilterFBO];
+//
+//    filter.preventRendering = NO;
 }
 
 - (CGImageRef)newCGImageFromCurrentlyProcessedOutput
@@ -191,6 +209,74 @@ NSString *const kGPUImagePassthroughFragmentShaderString = SHADER_STRING
     {
         return NULL;
     }
+//    
+//    // a CGImage can only be created from a 'normal' color texture
+//    NSAssert(self.outputTextureOptions.internalFormat == GL_RGBA, @"For conversion to a CGImage the output texture format for this filter must be GL_RGBA.");
+//    NSAssert(self.outputTextureOptions.type == GL_UNSIGNED_BYTE, @"For conversion to a CGImage the type of the output texture of this filter must be GL_UNSIGNED_BYTE.");
+//    
+//    __block CGImageRef cgImageFromBytes;
+//    
+//    runSynchronouslyOnVideoProcessingQueue(^{
+//        [GPUImageContext useImageProcessingContext];
+//        
+//        CGSize currentFBOSize = [self sizeOfFBO];
+//        NSUInteger totalBytesForImage = (int)currentFBOSize.width * (int)currentFBOSize.height * 4;
+//        // It appears that the width of a texture must be padded out to be a multiple of 8 (32 bytes) if reading from it using a texture cache
+//        NSUInteger paddedWidthOfImage = CVPixelBufferGetBytesPerRow(renderTarget) / 4.0;
+//        NSUInteger paddedBytesForImage = paddedWidthOfImage * (int)currentFBOSize.height * 4;
+//        
+//        GLubyte *rawImagePixels;
+//        
+//        NSLog(@"f.newCGImageFrom: %@, pre: %d, ren: %p", self, preparedToCaptureImage, renderTarget);
+//        CGDataProviderRef dataProvider;
+//        if ([GPUImageContext supportsFastTextureUpload] && preparedToCaptureImage)
+//        {
+//            //        glFlush();
+//            glFinish();
+//            // edited by tastyone@gmail.com
+////            CFRetain(renderTarget); // I need to retain the pixel buffer here and release in the data source callback to prevent its bytes from being prematurely deallocated during a photo write operation
+////            CVPixelBufferLockBaseAddress(renderTarget, 0);
+//            renderTargetForUnlock = renderTarget;
+//            CFRetain(renderTargetForUnlock);
+//            CVPixelBufferLockBaseAddress(renderTargetForUnlock, kCVPixelBufferLock_ReadOnly);
+//            self.preventRendering = YES; // Locks don't seem to work, so prevent any rendering to the filter which might overwrite the pixel buffer data until done processing
+//            rawImagePixels = (GLubyte *)CVPixelBufferGetBaseAddress(renderTarget);
+//            dataProvider = CGDataProviderCreateWithData((__bridge_retained void*)self, rawImagePixels, paddedBytesForImage, dataProviderUnlockCallback);
+//        }
+//        else
+//        {
+//            [self setOutputFBO];
+//            rawImagePixels = (GLubyte *)malloc(totalBytesForImage);
+//            glReadPixels(0, 0, (int)currentFBOSize.width, (int)currentFBOSize.height, GL_RGBA, GL_UNSIGNED_BYTE, rawImagePixels);
+//            dataProvider = CGDataProviderCreateWithData(NULL, rawImagePixels, totalBytesForImage, dataProviderReleaseCallback);
+//        }
+//        
+//        
+//        CGColorSpaceRef defaultRGBColorSpace = CGColorSpaceCreateDeviceRGB();
+//        
+//        if ([GPUImageContext supportsFastTextureUpload] && preparedToCaptureImage)
+//        {
+//            cgImageFromBytes = CGImageCreate((int)currentFBOSize.width, (int)currentFBOSize.height, 8, 32, CVPixelBufferGetBytesPerRow(renderTarget), defaultRGBColorSpace, kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst, dataProvider, NULL, NO, kCGRenderingIntentDefault);
+//            
+//            CVPixelBufferUnlockBaseAddress(renderTargetForUnlock, kCVPixelBufferLock_ReadOnly);
+//        }
+//        else
+//        {
+//            cgImageFromBytes = CGImageCreate((int)currentFBOSize.width, (int)currentFBOSize.height, 8, 32, 4 * (int)currentFBOSize.width, defaultRGBColorSpace, kCGBitmapByteOrderDefault | kCGImageAlphaLast, dataProvider, NULL, NO, kCGRenderingIntentDefault);
+//        }
+//        
+//        // Capture image with current device orientation
+//        CGDataProviderRelease(dataProvider); dataProvider = NULL;
+//        CGColorSpaceRelease(defaultRGBColorSpace); defaultRGBColorSpace = NULL;
+//    });
+//
+//    return cgImageFromBytes;
+//}
+//
+//- (CGImageRef)newCGImageByFilteringCGImage:(CGImageRef)imageToFilter
+//{
+//    return [self newCGImageByFilteringCGImage:imageToFilter orientation:UIImageOrientationUp];
+//}
 
     GPUImageFramebuffer* framebuffer = [self framebufferForOutput];
     
@@ -371,6 +457,13 @@ NSString *const kGPUImagePassthroughFragmentShaderString = SHADER_STRING
             NSInteger indexOfObject = [targets indexOfObject:currentTarget];
             NSInteger textureIndex = [[targetTextureIndices objectAtIndex:indexOfObject] integerValue];
             [currentTarget newFrameReadyAtTime:frameTime atIndex:textureIndex];
+//            runSynchronouslyOnVideoProcessingQueue(^{
+//                [GPUImageContext useImageProcessingContext];
+//                
+//                glDeleteTextures(1, &outputTexture);
+//                outputTexture = 0;
+//                glFinish(); // added by tastyone@gmail.com
+//            });
         }
     }
 }
