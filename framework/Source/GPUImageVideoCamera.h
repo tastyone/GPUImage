@@ -138,6 +138,8 @@ void setColorConversion709( GLfloat conversionMatrix[9] );
  */
 - (AVCaptureConnection *)videoCaptureConnection;
 
+- (AVCaptureDeviceInput*)videoInput; // by tastyone@gmail.com
+
 /** This flips between the front and rear cameras
  */
 - (void)rotateCamera;

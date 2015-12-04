@@ -549,6 +549,10 @@ void setColorConversion709( GLfloat conversionMatrix[9] )
     return nil;
 }
 
+- (AVCaptureDeviceInput *)videoInput {
+    return videoInput;
+}
+
 #define INITIALFRAMESTOIGNOREFORBENCHMARK 5
 
 - (void)updateTargetsForVideoCameraUsingCacheTextureAtWidth:(int)bufferWidth height:(int)bufferHeight time:(CMTime)currentTime;
