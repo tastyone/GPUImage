@@ -56,6 +56,17 @@ typedef struct GPUMatrix3x3 GPUMatrix3x3;
     
     BOOL isEndProcessing;
 
+//    BOOL preparedToCaptureImage;
+//
+//    // Texture caches are an iOS-specific capability
+//#if TARGET_IPHONE_SIMULATOR || TARGET_OS_IPHONE
+//    CVOpenGLESTextureCacheRef filterTextureCache;
+//    CVPixelBufferRef renderTarget;
+//    CVPixelBufferRef renderTargetForUnlock; // added by tastyone;
+//    CVOpenGLESTextureRef renderTexture;
+//#else
+//#endif
+    
     CGSize currentFilterSize;
     GPUImageRotationMode inputRotation;
     
