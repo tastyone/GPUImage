@@ -156,3 +156,12 @@
 #import "GPUImageLaplacianFilter.h"
 #import "GPUImageiOSBlurFilter.h"
 #import "GPUImageLuminanceRangeFilter.h"
+#import "GPUImageDirectionalNonMaximumSuppressionFilter.h"
+#import "GPUImageDirectionalSobelEdgeDetectionFilter.h"
+#import "GPUImageSingleComponentGaussianBlurFilter.h"
+#import "GPUImageThreeInputFilter.h"
+#import "GPUImageWeakPixelInclusionFilter.h"
+#import "GPUImageColorConversion.h"
+#import "GPUImageColourFASTFeatureDetector.h"
+#import "GPUImageColourFASTSamplingOperation.h"
+

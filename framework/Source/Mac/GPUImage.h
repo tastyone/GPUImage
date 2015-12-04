@@ -5,6 +5,8 @@
 #import <GPUImage/GPUImageContext.h>
 
 // Sources
+#import <GPUImage/GPUImageMovie.h>
+#import <GPUImage/GPUImageColorConversion.h>
 #import <GPUImage/GPUImageOutput.h>
 #import <GPUImage/GPUImageAVCamera.h>
 #import <GPUImage/GPUImagePicture.h>
@@ -149,6 +151,11 @@
 #import <GPUImage/GPUImageLocalBinaryPatternFilter.h>
 #import <GPUImage/GPUImageMosaicFilter.h>
 #import <GPUImage/GPUImagePerlinNoiseFilter.h>
+#import <GPUImage/GPUImageWeakPixelInclusionFilter.h>
+#import <GPUImage/GPUImageNonMaximumSuppressionFilter.h>
+#import <GPUImage/GPUImageSourceOverBlendFilter.h>
+#import <GPUImage/GPUImageColourFASTFeatureDetector.h>
+#import <GPUImage/GPUImageColourFASTSamplingOperation.h>
 
 // Outputs
 #import <GPUImage/GPUImageView.h>
