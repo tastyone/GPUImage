@@ -2,9 +2,9 @@
 #import <OpenGLES/EAGLDrawable.h>
 #import <AVFoundation/AVFoundation.h>
 
-BOOL __re_use_main_thread = NO;
-GLint __re_customTextureSize = 0;
-BOOL __re_captureAsYUV = YES;
+//BOOL __re_use_main_thread = NO;
+//GLint __re_customTextureSize = 0;
+//BOOL __re_captureAsYUV = YES;
 
 #define MAXSHADERPROGRAMSALLOWEDINCACHE 40
 
@@ -35,14 +35,14 @@ static void *openGLESContextQueueKey;
     }
 
 	openGLESContextQueueKey = &openGLESContextQueueKey;
-    if ( __re_use_main_thread ) {
-        _contextQueue = dispatch_get_main_queue();
-#ifdef DEBUG
-        NSLog(@"__re_use_main_thread ON");
-#endif
-    } else {
+//    if ( __re_use_main_thread ) {
+//        _contextQueue = dispatch_get_main_queue();
+//#ifdef DEBUG
+//        NSLog(@"__re_use_main_thread ON");
+//#endif
+//    } else {
         _contextQueue = dispatch_queue_create("com.sunsetlakesoftware.GPUImage.openGLESContextQueue", NULL);
-    }
+//    }
     
 #if OS_OBJECT_USE_OBJC
 	dispatch_queue_set_specific(_contextQueue, openGLESContextQueueKey, (__bridge void *)self, NULL);
@@ -197,7 +197,7 @@ static void *openGLESContextQueueKey;
 
 + (CGSize)sizeThatFitsWithinATextureForSize:(CGSize)inputSize;
 {
-    GLint maxTextureSize = __re_customTextureSize > 0 ? __re_customTextureSize : [self maximumTextureSizeForThisDevice];
+    GLint maxTextureSize = [self maximumTextureSizeForThisDevice];
     if ( (inputSize.width < maxTextureSize) && (inputSize.height < maxTextureSize) )
     {
         return inputSize;

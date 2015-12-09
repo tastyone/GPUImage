@@ -6,9 +6,9 @@
 
 typedef enum { kGPUImageNoRotation, kGPUImageRotateLeft, kGPUImageRotateRight, kGPUImageFlipVertical, kGPUImageFlipHorizonal, kGPUImageRotateRightFlipVertical, kGPUImageRotateRightFlipHorizontal, kGPUImageRotate180 } GPUImageRotationMode;
 
-extern BOOL __re_use_main_thread;
-extern GLint __re_customTextureSize;
-extern BOOL __re_captureAsYUV;
+//extern BOOL __re_use_main_thread;
+//extern GLint __re_customTextureSize;
+//extern BOOL __re_captureAsYUV;
 
 @interface GPUImageContext : NSObject
 
